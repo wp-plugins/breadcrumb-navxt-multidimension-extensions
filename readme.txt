@@ -14,7 +14,7 @@ In the [Vista-Like Breadcrumbs for WordPress](http://mtekk.us/archives/guides/vi
 
 = Breadcrumb NavXT Versions Supported =
 
-This plugin supports Breadcrumb NavXT 5.0.x and Breadcrumb NavXT 5.1.x.
+This plugin supports Breadcrumb NavXT 5.1.0 and Breadcrumb NavXT 5.1.1.
 
 = Translations =
 
