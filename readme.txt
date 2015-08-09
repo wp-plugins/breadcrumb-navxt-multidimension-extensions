@@ -3,7 +3,7 @@ Contributors: mtekk
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=FD5XEU783BR8U&lc=US&item_name=Breadcrumb%20NavXT%20Donation&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted
 Tags: breadcrumb navxt, breadcrumb, breadcrumbs, trail, navigation, menu
 Requires at least: 3.8
-Tested up to: 4.1
+Tested up to: 4.3
 Stable tag: 1.8.1
 License: GPLv2 or later
 Automates the generation of multidimensional list breadcrumb trails with Breadcrumb NavXT.
