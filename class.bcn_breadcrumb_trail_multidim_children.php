@@ -16,7 +16,7 @@
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 require_once(dirname(__FILE__) . '/includes/block_direct_access.php');
-class bcn_breadcrumb_trail_multidim extends bcn_breadcrumb_trail
+class bcn_breadcrumb_trail_multidim_children extends bcn_breadcrumb_trail
 {
 	//Default constructor
 	function __construct()
@@ -36,7 +36,7 @@ class bcn_breadcrumb_trail_multidim extends bcn_breadcrumb_trail
 		global $post;
 		//Get the current category object, filter applied within this call
 		$term = get_term($id, $taxonomy);
-		$suffix = '<ul>' . wp_list_categories('depth=1&parent=' . $term->parent . '&exclude=' . $id . '&echo=0&taxonomy=' . $taxonomy . '&show_option_none=bcn_multidim_oopse&title_li=') . '</ul>';
+		$suffix = '<ul>' . wp_list_categories('depth=1&parent=' . $term->term_id . '&echo=0&taxonomy=' . $taxonomy . '&show_option_none=bcn_multidim_oopse&title_li=') . '</ul>';
 		//Hide empty enteries
 		if(strpos($suffix, 'bcn_multidim_oopse') !== false)
 		{
@@ -62,7 +62,7 @@ class bcn_breadcrumb_trail_multidim extends bcn_breadcrumb_trail
 		global $wp_query;
 		//Simmilar to using $post, but for things $post doesn't cover
 		$term = $wp_query->get_queried_object();
-		$suffix = '<ul>' . wp_list_categories('depth=1&parent=' . $term->parent . '&exclude=' . $term->term_id . '&echo=0&taxonomy=' . $term->taxonomy . '&show_option_none=bcn_multidim_oopse&title_li=') . '</ul>';
+		$suffix = '<ul>' . wp_list_categories('depth=1&parent=' . $term->term_id . '&echo=0&taxonomy=' . $term->taxonomy . '&show_option_none=bcn_multidim_oopse&title_li=') . '</ul>';
 		//Hide empty enteries
 		if(strpos($suffix, 'bcn_multidim_oopse') !== false)
 		{
@@ -94,7 +94,8 @@ class bcn_breadcrumb_trail_multidim extends bcn_breadcrumb_trail
 	{
 		//Use WordPress API, though a bit heavier than the old method, this will ensure compatibility with other plug-ins
 		$parent = get_post($id);
-		$suffix = '<ul>' . wp_list_pages('depth=1&child_of=' . $parent->post_parent . '&exclude=' . $parent->ID . '&echo=0&title_li=') . '</ul>';
+		//Use WordPress API, though a bit heavier than the old method, this will ensure compatibility with other plug-ins
+		$suffix = '<ul>' . wp_list_pages('depth=1&child_of=' . $id . '&exclude=' . $id . '&echo=0&title_li=') . '</ul>';
 		//Hide empty enteries
 		if($suffix === '<ul></ul>')
 		{
@@ -128,7 +129,7 @@ class bcn_breadcrumb_trail_multidim extends bcn_breadcrumb_trail
 		$suffix = '';
 		if(is_post_type_hierarchical($post->post_type))
 		{
-			$suffix = '<ul>' . wp_list_pages('depth=1&child_of=' . $post->post_parent . '&exclude=' . $post->ID . '&echo=0&title_li=') . '</ul>';
+			$suffix = '<ul>' . wp_list_pages('depth=1&child_of=' . $post->ID . '&exclude=' . $post->ID . '&echo=0&title_li=') . '</ul>';
 			//Hide empty enteries
 			if($suffix === '<ul></ul>')
 			{
@@ -164,6 +165,79 @@ class bcn_breadcrumb_trail_multidim extends bcn_breadcrumb_trail
 		}
 	}
 	/**
+	 * A Breadcrumb Trail Filling Function 
+	 *
+	 * Handles only the root page stuff for post types, including the "page for posts"
+	 * 
+	 * TODO: this still needs to be cleaned up
+	 */
+	protected function do_root()
+	{
+		global $post, $wp_query, $current_site;
+		//If this is an attachment then we need to change the queried object to the parent post
+		if(is_attachment())
+		{
+			$type = get_post($post->post_parent);
+			//If the parent of the attachment is a page, exit early (works around bug where is_single() returns true for an attachment to a page)
+			if($type->post_type == 'page')
+			{
+				return;
+			}
+		}
+		else
+		{
+			//Simmilar to using $post, but for things $post doesn't cover
+			$type = $wp_query->get_queried_object();
+		}
+		$root_id = -1;
+		$type_str = '';
+		//Find our type string and root_id
+		$this->find_type($type, $type_str, $root_id);
+		//We only need the "blog" portion on members of the blog, and only if we're in a static frontpage environment
+		if($root_id > 1 || $this->opt['bblog_display'] && get_option('show_on_front') == 'page' && (is_home() || is_single() || is_tax() || is_category() || is_tag() || is_date()))
+		{
+			//If we entered here with a posts page, we need to set the id
+			if($root_id < 0)
+			{
+				$root_id = get_option('page_for_posts');
+			}
+			$frontpage_id = get_option('page_on_front');
+			//We'll have to check if this ID is valid, e.g. user has specified a posts page
+			if($root_id && $root_id != $frontpage_id)
+			{
+				//Use WordPress API, though a bit heavier than the old method, this will ensure compatibility with other plug-ins
+				$suffix = '<ul>' . wp_list_pages('depth=1&child_of=' . $root_id . '&exclude=' . $root_id . '&echo=0&title_li=') . '</ul>';
+				//Hide empty enteries
+				if($suffix === '<ul></ul>')
+				{
+					$suffix = '';
+				}
+				//Place the breadcrumb in the trail, uses the constructor to set the title, template, and type, we get a pointer to it in return
+				$breadcrumb = $this->add(new bcn_breadcrumb(get_the_title($root_id), $this->opt['Hpost_' . $type_str . '_template_no_anchor'] . $suffix, array($type_str . '-root', 'post', 'post-' . $type_str), NULL, $root_id));
+				//If we are at home, then we need to add the current item type
+				if(is_home())
+				{
+					$breadcrumb->add_type('current-item');
+				}
+				//If we're not on the current item we need to setup the anchor
+				if(!is_home() || (is_paged() && $this->opt['bpaged_display']) || (is_home() && $this->opt['bcurrent_item_linked']))
+				{
+					$breadcrumb->set_template($this->opt['Hpost_' . $type_str . '_template'] . $suffix);
+					//Figure out the anchor for home page
+					$breadcrumb->set_url(get_permalink($root_id));
+				}
+				//Done with the "root", now on to the parents
+				//Get the blog page
+				$bcn_post = get_post($root_id);
+				//If there is a parent post let's find it
+				if($bcn_post->post_parent && $bcn_post->ID != $bcn_post->post_parent && $frontpage_id != $bcn_post->post_parent)
+				{
+					$this->post_parents($bcn_post->post_parent, $frontpage_id);
+				}
+			}
+		}
+	}
+	/**
 	 * A Breadcrumb Trail Filling Function
 	 * 
 	 * This functions fills a breadcrumb for the home page.
@@ -174,16 +248,14 @@ class bcn_breadcrumb_trail_multidim extends bcn_breadcrumb_trail
 		//On everything else we need to link, but no current item (pre/suf)fixes
 		if($this->opt['bhome_display'])
 		{
+			$frontpage_id = get_option('page_on_front');
 			$suffix = '';
-			if(is_singular())
+			//Use WordPress API, though a bit heavier than the old method, this will ensure compatibility with other plug-ins
+			$suffix = '<ul>' . wp_list_pages('depth=1&child_of=' . $frontpage_id . '&exclude=' . $frontpage_id . '&echo=0&title_li=') . '</ul>';
+			//Hide empty enteries
+			if($suffix === '<ul></ul>')
 			{
-				//Use WordPress API, though a bit heavier than the old method, this will ensure compatibility with other plug-ins
-				$suffix = '<ul>' . wp_list_pages('depth=1&child_of=0&echo=0&title_li=') . '</ul>';
-				//Hide empty enteries
-				if($suffix === '<ul></ul>')
-				{
-					$suffix = '';
-				}
+				$suffix = '';
 			}
 			//Get the site name
 			$site_name = get_option('blogname');
